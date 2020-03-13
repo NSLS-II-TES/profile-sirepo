@@ -114,12 +114,12 @@ def rand_1(pop, popsize, target_indx, mut, bounds):
     x_2 = pop[b]
     x_3 = pop[c]
 
-    x_diff = {}
-    for motor_name, pos in x_2.items():
-        x_diff[motor_name] = x_2[motor_name] - x_3[motor_name]
     v_donor = {}
-    for motor_name, pos in x_1.items():
-        v_donor[motor_name] = x_1[motor_name] + mut * x_diff[motor_name]
+    for elem, param in x_1.items():
+        v_donor[elem] = {}
+        for param_name in param.keys():
+            v_donor[elem][param_name] = x_1[elem][param_name] + mut *\
+                                        (x_2[elem][param_name] - x_3[elem][param_name])
     v_donor = ensure_bounds(v_donor, bounds)
     return v_donor
 
@@ -133,12 +133,12 @@ def best_1(pop, popsize, target_indx, mut, bounds, ind_sol):
     x_1 = pop[a]
     x_2 = pop[b]
 
-    x_diff = {}
-    for motor_name, pos in x_1.items():
-        x_diff[motor_name] = x_1[motor_name] - x_2[motor_name]
     v_donor = {}
-    for motor_name, pos in x_best.items():
-        v_donor[motor_name] = x_best[motor_name] + mut * x_diff[motor_name]
+    for elem, param in x_best.items():
+        v_donor[elem] = {}
+        for param_name in param.items():
+            v_donor[elem][param_name] = x_best[elem][param_name] + mut *\
+                                        (x_1[elem][param_name] - x_2[elem][param_name])
     v_donor = ensure_bounds(v_donor, bounds)
     return v_donor
 
@@ -266,6 +266,7 @@ def optimize(bounds=param_bounds, popsize=3, crosspb=.8, mut=.1, mut_type='rand/
         best_gen_sol = []
         # mutate
         mutated_trial_pop = mutate(population, mut_type, mut, bounds, ind_sol=intensities)
+        print(mutated_trial_pop)
         # crossover
 
         # select
@@ -456,5 +457,5 @@ def optimize(bounds=param_bounds, popsize=3, crosspb=.8, mut=.1, mut_type='rand/
 #
 
 
-if __name__ == '__main__':
-    optimize()
+# if __name__ == '__main__':
+#     optimize()
