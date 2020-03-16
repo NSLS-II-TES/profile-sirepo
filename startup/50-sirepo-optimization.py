@@ -66,24 +66,59 @@ param_bounds = {'Aperture': {'horizontalSize': [1, 10],
 best_fitness = [0]
 
 
-def run(flyer):
-    # print(f'flying with {flyer}')
-    RE(bp.fly([flyer]))
+# def run(flyer):
+#     # print(f'flying with {flyer}')
+#     RE(bp.fly([flyer]))
 
 
-def run_fly_sim(flyers, run_scans_parallel):
-    if run_scans_parallel:
-        procs = []
-        for i in range(len(flyers)):
-            p = Process(target=run, args=(flyers[i],))
-            p.start()
-            procs.append(p)
-        # wait for procs to finish
-        for p in procs:
-            p.join()
-    else:
-        # run serial
-        RE(bp.fly([flyer for flyer in flyers]))
+def run_fly_sim(flyers):  # , run_scans_parallel):
+    # if run_scans_parallel:
+    #     procs = []
+    #     for i in range(len(flyers)):
+    #         p = Process(target=run, args=(flyers[i],))
+    #         p.start()
+    #         procs.append(p)
+    #     # wait for procs to finish
+    #     for p in procs:
+    #         p.join()
+    # else:
+
+    # run serial
+    RE(bp.fly([flyer for flyer in flyers]))
+
+
+def generate_flyers(population, num_between_vals, sim_id, server_name, root_dir, watch_name, run_parallel):
+    flyers = []
+    params_to_change = []
+    for i in range(len(population) - 1):
+        curr_params_to_change = []
+        between_param_linspaces = []
+        if i == 0:
+            curr_params_to_change.append(population[i])
+        for elem, param in population[i].items():
+            for param_name, pos in param.items():
+                between_param_linspaces.append(np.linspace(pos, population[i + 1][elem][param_name],
+                                                           num_between_vals)[1:-1])
+
+        for j in range(len(between_param_linspaces[0])):
+            ctr = 0
+            indv = {}
+            for elem, param in population[0].items():
+                indv[elem] = {}
+                for param_name in param.keys():
+                    indv[elem][param_name] = between_param_linspaces[ctr][j]
+                    ctr += 1
+            curr_params_to_change.append(indv)
+        curr_params_to_change.append(population[i + 1])
+        params_to_change.append(curr_params_to_change)
+
+        # "fly" scan
+        # TODO: parameterize all flyer information
+        sim_flyer = sf.SirepoFlyer(sim_id=sim_id, server_name=server_name,
+                                   root_dir=root_dir, params_to_change=curr_params_to_change,
+                                   watch_name=watch_name, run_parallel=run_parallel)
+        flyers.append(sim_flyer)
+    return flyers, params_to_change
 
 
 def ensure_bounds(vec, bounds):
@@ -198,11 +233,12 @@ def mutate(population, strategy, mut, bounds, ind_sol):
 #     return population, ind_sol
 
 
-def optimize(bounds=param_bounds, popsize=3, crosspb=.8, mut=.1, mut_type='rand/1', threshold=0,
-             max_iter=100, run_scans_parallel=True):
+def optimize(bounds, num_between_vals, sim_id, server_name, root_dir, watch_name,
+             popsize=3, crosspb=.8, mut=.1, mut_type='rand/1', threshold=0,
+             max_iter=100, run_parallel=True):
     # Initial population
     initial_population = []
-    flyers = []
+    # flyers = []
     for i in range(popsize):
         indv = {}
         for elem, param in param_bounds.items():
@@ -217,43 +253,47 @@ def optimize(bounds=param_bounds, popsize=3, crosspb=.8, mut=.1, mut_type='rand/
     for i in initial_population:
         print(i)
 
-    # create linspaces between initial_population
-    params_to_change = []
-    for i in range(popsize-1):
-        curr_params_to_change = []
-        between_param_linspaces = []
-        if i == 0:
-            curr_params_to_change.append(initial_population[i])
-        for elem, param in initial_population[i].items():
-            for param_name, pos in param.items():
-                between_param_linspaces.append(np.linspace(pos, initial_population[i + 1][elem][param_name], 4)[1:-1])
-
-        for j in range(len(between_param_linspaces[0])):
-            ctr = 0
-            indv = {}
-            for elem, param in initial_population[0].items():
-                indv[elem] = {}
-                for param_name in param.keys():
-                    indv[elem][param_name] = between_param_linspaces[ctr][j]
-                    ctr += 1
-            curr_params_to_change.append(indv)
-        curr_params_to_change.append(initial_population[i + 1])
-        params_to_change.append(curr_params_to_change)
-
-        # "fly" scan
-        sim_flyer = sf.SirepoFlyer(sim_id='87XJ4oEb', server_name='http://10.10.10.10:8000',
-                                   root_dir=root_dir, params_to_change=curr_params_to_change,
-                                   watch_name='W60', run_parallel=True)
-        flyers.append(sim_flyer)
+    flyers, changed_params = generate_flyers(initial_population, num_between_vals, sim_id, server_name,
+                             root_dir, watch_name, run_parallel)
+    print(f'*** len of flyers: {len(flyers)}', flyers)
+    # # create linspaces between initial_population
+    # params_to_change = []
+    # for i in range(popsize-1):
+    #     curr_params_to_change = []
+    #     between_param_linspaces = []
+    #     if i == 0:
+    #         curr_params_to_change.append(initial_population[i])
+    #     for elem, param in initial_population[i].items():
+    #         for param_name, pos in param.items():
+    #             between_param_linspaces.append(np.linspace(pos, initial_population[i + 1][elem][param_name], 4)[1:-1])
+    #
+    #     for j in range(len(between_param_linspaces[0])):
+    #         ctr = 0
+    #         indv = {}
+    #         for elem, param in initial_population[0].items():
+    #             indv[elem] = {}
+    #             for param_name in param.keys():
+    #                 indv[elem][param_name] = between_param_linspaces[ctr][j]
+    #                 ctr += 1
+    #         curr_params_to_change.append(indv)
+    #     curr_params_to_change.append(initial_population[i + 1])
+    #     params_to_change.append(curr_params_to_change)
+    #
+    #     # "fly" scan
+    #     # TODO: parameterize all flyer information
+    #     sim_flyer = sf.SirepoFlyer(sim_id='87XJ4oEb', server_name='http://10.10.10.10:8000',
+    #                                root_dir=root_dir, params_to_change=curr_params_to_change,
+    #                                watch_name='W60', run_parallel=True)
+    #     flyers.append(sim_flyer)
 
     population = []
     intensities = []
     for i in range(len(flyers)):
-        run_fly_sim([flyers[i]], run_scans_parallel=False)
+        run_fly_sim([flyers[i]])  # , run_scans_parallel=False)
         if i == 0:
-            population, intensities = omea_evaluation(params_to_change[i], True)
+            population, intensities = omea_evaluation(changed_params[i], first_scan=True)
         else:
-            partial_pop_pos, partial_pop_int = omea_evaluation(params_to_change[i], False)
+            partial_pop_pos, partial_pop_int = omea_evaluation(changed_params[i], first_scan=False)
             population.extend(partial_pop_pos)
             intensities.extend(partial_pop_int)
     print('\nFINAL NEW', population, intensities)
@@ -268,13 +308,15 @@ def optimize(bounds=param_bounds, popsize=3, crosspb=.8, mut=.1, mut_type='rand/
         mutated_trial_pop = mutate(population, mut_type, mut, bounds, ind_sol=intensities)
         print(mutated_trial_pop)
         # crossover
-
+        cross_trial_pop = crossover()
+        print(cross_trial_pop)
         # select
 
         # score keeping
 
         # randomize individual
 
+        v += 1
 #     #
 #     # # Termination conditions
 #     # v = 0  # generation number
@@ -458,4 +500,4 @@ def optimize(bounds=param_bounds, popsize=3, crosspb=.8, mut=.1, mut_type='rand/
 
 
 # if __name__ == '__main__':
-#     optimize()
+#     optimize(bounds=param_bounds)
