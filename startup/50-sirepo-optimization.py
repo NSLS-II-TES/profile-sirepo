@@ -7,7 +7,8 @@ import random
 import matplotlib.pyplot as plt
 
 
-def omea_evaluation(param_bounds, population, num_interm_vals, num_scans_at_once):
+def omea_evaluation(param_bounds, popsize, num_interm_vals, num_scans_at_once,
+                    flyer_name, intensity_name, uids):
     """Look at data from flyers and pick best individuals
 
         Parameters
@@ -25,21 +26,23 @@ def omea_evaluation(param_bounds, population, num_interm_vals, num_scans_at_once
         num_scans_at_once : int
                             Number of parallel scans to run at a time
     """
+    # TODO: parameterize flyer name
     pop_positions = []
     pop_intensities = []
     # get number of records to look at from databroker
-    num_records = calc_num_records(len(population), num_interm_vals, num_scans_at_once)
+    num_records = calc_num_records(popsize, num_interm_vals, num_scans_at_once)
     # get data from databroker
     fly_data = []
-    for i in range(-int(num_records), 0):
-        fly_data.append(db[i].table('sirepo_flyer'))
+    # for i in range(-int(num_records), 0):
+    for uid in uids:
+        fly_data.append(db[uid].table(flyer_name))
     interm_pos = []
     interm_int = []
     for i in fly_data:
         print(i)
     # Create all sets of indices for population values first
-    pop_indxs = [[0, 1]]  # [i_index, j_index]
-    while len(pop_indxs) < len(population):
+    pop_indxs = [[0, 1]]
+    while len(pop_indxs) < popsize:
         i_index = pop_indxs[-1][0]
         j_index = pop_indxs[-1][1]
         pre_mod_val = j_index + num_interm_vals + 1
@@ -53,98 +56,46 @@ def omea_evaluation(param_bounds, population, num_interm_vals, num_scans_at_once
             j_index = mod_res
         pop_indxs.append([i_index, j_index])
     curr_pop_index = 0
-    # TODO: make interm_pos/interm_int into list of lists for easier analysis
     for i in range(len(fly_data)):
         curr_interm_pos = []
         curr_interm_int = []
         for j in range(1, len(fly_data[i]) + 1):
             if (i == pop_indxs[curr_pop_index][0] and
                     j == pop_indxs[curr_pop_index][1]):
-                pop_intensities.append(fly_data[i]['sirepo_flyer_mean'][j])
+                pop_intensities.append(fly_data[i][f'{flyer_name}_{intensity_name}'][j])
                 indv = {}
                 for elem, param in param_bounds.items():
                     indv[elem] = {}
                     for param_name in param.keys():
-                        indv[elem][param_name] = fly_data[i][f'sirepo_flyer_{elem}_{param_name}'][j]
+                        indv[elem][param_name] = fly_data[i][f'{flyer_name}_{elem}_{param_name}'][j]
                 pop_positions.append(indv)
                 curr_pop_index += 1
             else:
-                curr_interm_int.append(fly_data[i]['sirepo_flyer_mean'][j])
+                curr_interm_int.append(fly_data[i][f'{flyer_name}_{intensity_name}'][j])
                 indv = {}
                 for elem, param in param_bounds.items():
                     indv[elem] = {}
                     for param_name in param.keys():
-                        indv[elem][param_name] = fly_data[i][f'sirepo_flyer_{elem}_{param_name}'][j]
+                        indv[elem][param_name] = fly_data[i][f'{flyer_name}_{elem}_{param_name}'][j]
                 curr_interm_pos.append(indv)
         interm_pos.append(curr_interm_pos)
         interm_int.append(curr_interm_int)
-
-    for i in pop_positions:
-        print(i)
-    print()
-    for i in interm_pos:
-        print(i)
-    print()
+    # picking best positions
+    interm_max_idx = []
+    print('OMEA: LEN OF INTERM_INT', len(interm_int))
+    for i in range(len(interm_int)):
+        curr_max_int = np.max(interm_int[i])
+        interm_max_idx.append(interm_int[i].index(curr_max_int))
+    print('OMEA: LEN OF interm_max_idx', len(interm_max_idx))
+    print('OMEA: LEN OF pop_intensities', len(pop_intensities))
+    for i in range(len(interm_max_idx)):
+        if interm_int[i][interm_max_idx[i]] > pop_intensities[i + 1]:
+            pop_intensities[i + 1] = interm_int[i][interm_max_idx[i]]
+            pop_positions[i + 1] = interm_pos[i][interm_max_idx[i]]
     return pop_positions, pop_intensities
 
 
-# def omea_evaluation(param_bounds, first_scan):
-#     # def omea_evaluation(first_scan):
-#     # TODO: FIX THIS
-#     # get data from databroker
-#     pop_intensity = []
-#     pop_positions = []
-#     t = db[-1].table('sirepo_flyer')
-#     between_intensities = []
-#     between_positions = []
-#     for j in range(len(t)):
-#         if first_scan:
-#             if j == 0 or j == (len(t) - 1):
-#                 pop_intensity.append(t['sirepo_flyer_mean'][j + 1])
-#                 indv = {}
-#                 for elem, param in param_bounds[0].items():
-#                     indv[elem] = {}
-#                     for param_name in param.keys():
-#                         indv[elem][param_name] = t[f'sirepo_flyer_{elem}_{param_name}'][j + 1]
-#                 pop_positions.append(indv)
-#                 # pop_positions.append(t['sirepo_flyer_parameters'][j + 1])
-#             else:
-#                 between_intensities.append(t['sirepo_flyer_mean'][j + 1])
-#                 indv = {}
-#                 for elem, param in param_bounds[0].items():
-#                     indv[elem] = {}
-#                     for param_name in param.keys():
-#                         indv[elem][param_name] = t[f'sirepo_flyer_{elem}_{param_name}'][j + 1]
-#                 between_positions.append(indv)
-#                 # between_positions.append(t['sirepo_flyer_parameters'][j + 1])
-#         else:
-#             if j == (len(t) - 1):
-#                 pop_intensity.append(t['sirepo_flyer_mean'][j + 1])
-#                 indv = {}
-#                 for elem, param in param_bounds[0].items():
-#                     indv[elem] = {}
-#                     for param_name in param.keys():
-#                         indv[elem][param_name] = t[f'sirepo_flyer_{elem}_{param_name}'][j + 1]
-#                 pop_positions.append(indv)
-#                 # pop_positions.append(t['sirepo_flyer_parameters'][j + 1])
-#             else:
-#                 between_intensities.append(t['sirepo_flyer_mean'][j + 1])
-#                 indv = {}
-#                 for elem, param in param_bounds[0].items():
-#                     indv[elem] = {}
-#                     for param_name in param.keys():
-#                         indv[elem][param_name] = t[f'sirepo_flyer_{elem}_{param_name}'][j + 1]
-#                 between_positions.append(indv)
-#                 # between_positions.append(t['sirepo_flyer_parameters'][j + 1])
-#     current_max_int = np.max(between_intensities)
-#     curr_max_indx = between_intensities.index(current_max_int)
-#     if current_max_int > pop_intensity[-1]:
-#         pop_intensity[-1] = current_max_int
-#         pop_positions[-1] = between_positions[curr_max_indx]
-#     return pop_positions, pop_intensity
-
-
-# TODO: move this somewhere probably
+# TODO: move this somewhere; make into a function?
 param_bounds = {'Aperture': {'horizontalSize': [1, 10],
                              'verticalSize': [.1, 1]},
                 'Lens': {'horizontalFocalLength': [10, 30]},
@@ -153,27 +104,30 @@ param_bounds = {'Aperture': {'horizontalSize': [1, 10],
 best_fitness = [0]
 
 
-# pass in params for generating flyers
 def run_fly_sim(population, num_interm_vals, num_scans_at_once,
                 sim_id, server_name, root_dir, watch_name, run_parallel):
-    # TODO: call generate_flyers
+    uid_list = []
     flyers = generate_flyers(population, num_interm_vals,
                              sim_id, server_name, root_dir, watch_name, run_parallel)
+    # make list of flyers into list of list of flyers
+    # pass 1 sublist of flyers at a time
     flyers = [flyers[i:i+num_scans_at_once] for i in range(0, len(flyers), num_scans_at_once)]
     for i in range(len(flyers)):
+        # uids = (yield from bp.fly(flyers[i]))
         yield from bp.fly(flyers[i])
+        # uid_list.append(uids)
+    for i in range(-len(flyers), 0):
+        uid_list.append(i)
+    return uid_list
 
 
 def generate_flyers(population, num_between_vals,
                     sim_id, server_name, root_dir, watch_name, run_parallel):
-    # TODO: FIX THIS
     flyers = []
     params_to_change = []
     for i in range(len(population) - 1):
-        # curr_params_to_change = []
         between_param_linspaces = []
         if i == 0:
-            # curr_params_to_change.append(population[i])
             params_to_change.append(population[i])
         for elem, param in population[i].items():
             for param_name, pos in param.items():
@@ -188,12 +142,8 @@ def generate_flyers(population, num_between_vals,
                 for param_name in param.keys():
                     indv[elem][param_name] = between_param_linspaces[ctr][j]
                     ctr += 1
-            # curr_params_to_change.append(indv)
             params_to_change.append(indv)
-        # curr_params_to_change.append(population[i + 1])
         params_to_change.append(population[i + 1])
-        # params_to_change.append(curr_params_to_change)
-        # "fly" scan
     for param in params_to_change:
         sim_flyer = sf.SirepoFlyer(sim_id=sim_id, server_name=server_name,
                                    root_dir=root_dir, params_to_change=[param],
@@ -293,32 +243,71 @@ def crossover(population, mutated_indv, crosspb):
     return crossover_indv
 
 
-def select(population, crossover_indv, ind_sol, num_between_vals,
-           sim_id, server_name, root_dir, watch_name, run_parallel):
-    # TODO: FIX THIS
-    positions = [elm for elm in crossover_indv]
+def create_selection_params(population, cross_indv):
+    positions = [elm for elm in cross_indv]
     positions.insert(0, population[0])
-    flyers, changed_params = generate_flyers(positions, num_between_vals, sim_id, server_name,
-                                             root_dir, watch_name, run_parallel)
-    for i in range(len(flyers)):
-        run_fly_sim([flyers[i]])
-        if i == 0:
-            new_population, new_ind_sol = omea_evaluation(param_bounds, first_scan=True)
-            # new_population, new_ind_sol = omea_evaluation(first_scan=True)
-        else:
-            partial_pop_pos, partial_pop_int = omea_evaluation(param_bounds, first_scan=False)
-            # partial_pop_pos, partial_pop_int = omea_evaluation(first_scan=False)
-            new_population.extend(partial_pop_pos)
-            new_ind_sol.extend(partial_pop_int)
-    new_population = new_population[1:]
-    new_ind_sol = new_ind_sol[1:]
-    for i in range(len(new_ind_sol)):
-        if new_ind_sol[i] > ind_sol[i]:
+    return positions
+
+
+def create_rand_selection_params(population, intensities, param_bounds):
+    positions = []
+    change_indx = intensities.index(np.min(intensities))
+    positions.append(population[0])
+    indv = {}
+    for elem, param in param_bounds.items():
+        indv[elem] = {}
+        for param_name, bound in param.items():
+            indv[elem][param_name] = random.uniform(bound[0], bound[1])
+    positions.append(indv)
+    return positions, change_indx
+
+
+def select(param_bounds, population, intensities, num_interm_vals, num_scans_at_once,
+           flyer_name, intensity_name, uids):
+    # OMEA
+    new_population, new_intensities = omea_evaluation(param_bounds, len(population) + 1,
+                                                      num_interm_vals, num_scans_at_once,
+                                                      flyer_name, intensity_name, uids=uids)
+    # # cut first value; it's already been evaluated in population
+    del new_population[0]
+    del new_intensities[0]
+    # analysis
+    print('LEN OF NEW_INTENSITIES', len(new_intensities))
+    for i in range(len(new_intensities)):
+        print(intensities[i], '\n', new_intensities[i])
+        if new_intensities[i] > intensities[i]:
             population[i] = new_population[i]
-            ind_sol[i] = new_ind_sol[i]
+            intensities[i] = new_intensities[i]
     population.reverse()
-    ind_sol.reverse()
-    return population, ind_sol
+    intensities.reverse()
+    return population, intensities
+
+# def select(population, crossover_indv, ind_sol, num_between_vals,
+#            sim_id, server_name, root_dir, watch_name, run_parallel):
+#     # TODO: FIX THIS
+#     positions = [elm for elm in crossover_indv]
+#     positions.insert(0, population[0])
+#     flyers, changed_params = generate_flyers(positions, num_between_vals, sim_id, server_name,
+#                                              root_dir, watch_name, run_parallel)
+#     for i in range(len(flyers)):
+#         run_fly_sim([flyers[i]])
+#         if i == 0:
+#             new_population, new_ind_sol = omea_evaluation(param_bounds, first_scan=True)
+#             # new_population, new_ind_sol = omea_evaluation(first_scan=True)
+#         else:
+#             partial_pop_pos, partial_pop_int = omea_evaluation(param_bounds, first_scan=False)
+#             # partial_pop_pos, partial_pop_int = omea_evaluation(first_scan=False)
+#             new_population.extend(partial_pop_pos)
+#             new_ind_sol.extend(partial_pop_int)
+#     new_population = new_population[1:]
+#     new_ind_sol = new_ind_sol[1:]
+#     for i in range(len(new_ind_sol)):
+#         if new_ind_sol[i] > ind_sol[i]:
+#             population[i] = new_population[i]
+#             ind_sol[i] = new_ind_sol[i]
+#     population.reverse()
+#     ind_sol.reverse()
+#     return population, ind_sol
 
 
 def calc_num_records(popsize, num_interm_vals, num_scans_at_once):
@@ -328,9 +317,10 @@ def calc_num_records(popsize, num_interm_vals, num_scans_at_once):
     return num_records
 
 
-def optimize(bounds, num_interm_vals, sim_id, server_name, root_dir, watch_name,
+def optimize(fly_plan, bounds, num_interm_vals, sim_id, server_name, root_dir, watch_name,
              popsize=3, crosspb=.8, mut=.1, mut_type='rand/1', threshold=0,
-             max_iter=100, run_parallel=True, num_scans_at_once=5):
+             max_iter=100, run_parallel=True, num_scans_at_once=5,
+             flyer_name='sirepo_flyer', intensity_name='mean'):
     # Initial population
     initial_population = []
     for i in range(popsize):
@@ -343,68 +333,85 @@ def optimize(bounds, num_interm_vals, sim_id, server_name, root_dir, watch_name,
     first_optic = list(param_bounds.keys())[0]
     first_param_name = list(param_bounds[first_optic].keys())[0]
     initial_population = sorted(initial_population, key=lambda kv: kv[first_optic][first_param_name])
+    print('INITIAL POPULATION')
+    for i in initial_population:
+        print(i)
 
-    yield from run_fly_sim(initial_population, num_interm_vals, num_scans_at_once,
-                           sim_id, server_name, root_dir, watch_name, run_parallel)
+    # TODO: test this!
+    uid_list = (yield from fly_plan(initial_population, num_interm_vals, num_scans_at_once,
+                                        sim_id, server_name, root_dir, watch_name, run_parallel))
 
     # OMEA evaluation
-    population, intensities = omea_evaluation(bounds, initial_population,
-                                              num_interm_vals, num_scans_at_once)
+    population, intensities = omea_evaluation(param_bounds=bounds, popsize=len(initial_population),
+                                              num_interm_vals=num_interm_vals, num_scans_at_once=num_scans_at_once,
+                                              flyer_name=flyer_name, intensity_name=intensity_name, uids=uid_list)
+    population.reverse()
+    intensities.reverse()
+    v = 0
+    consec_best_ctr = 0
+    old_best_fit_int = 0
+    # termination conditions
+    while not (v > 0):
+        print('*********************', len(population), len(intensities))
+        # while not ((v > max_iter) or (consec_best_ctr >= 5 and old_best_fit_int >= threshold)):
+        print(f'GENERATION {v + 1}')
+        best_gen_sol = []
+        # mutate
+        mutated_trial_pop = mutate(population, mut_type, mut, bounds, ind_sol=intensities)
+        print('MUTATED_TRIAL_POP')
+        for i in mutated_trial_pop:
+            print(i)
+        # crossover
+        cross_trial_pop = crossover(population, mutated_trial_pop, crosspb)
+        print('CROSS_TRIAL_POP')
+        for i in cross_trial_pop:
+            print(i)
+        # select
+        positions = create_selection_params(population, cross_trial_pop)
+        uid_list = (yield from fly_plan(positions, num_interm_vals, num_scans_at_once,
+                                           sim_id, server_name, root_dir, watch_name, run_parallel))
+        population, intensities = select(param_bounds, population, intensities,
+                                         num_interm_vals, num_scans_at_once,
+                                         flyer_name, intensity_name, uids=uid_list)
+        print('select')
+        for i in range(len(population)):
+            print(population[i], intensities[i])
+        # score keeping
+        gen_best = np.max(intensities)
+        best_indv = population[intensities.index(gen_best)]
+        best_gen_sol.append(best_indv)
+        best_fitness.append(gen_best)
 
-    # flyers, changed_params = generate_flyers(initial_population, num_between_vals, sim_id, server_name,
-    #                                          root_dir, watch_name, run_parallel)
-    #
-    # population = []
-    # intensities = []
-    # # TODO: FIX THIS
-    # for i in range(len(flyers)):
-    #     run_fly_sim([flyers[i]])
-    #     if i == 0:
-    #         population, intensities = omea_evaluation(param_bounds, first_scan=True)
-    #         # population, intensities = omea_evaluation(first_scan=True)
-    #     else:
-    #         partial_pop_pos, partial_pop_int = omea_evaluation(param_bounds, first_scan=False)
-    #         # partial_pop_pos, partial_pop_int = omea_evaluation(first_scan=False)
-    #         population.extend(partial_pop_pos)
-    #         intensities.extend(partial_pop_int)
-    # population.reverse()
-    # intensities.reverse()
-    # v = 0
-    # consec_best_ctr = 0
-    # old_best_fit_int = 0
-    # # termination conditions
-    # # while not (v > 0):
-    # while not ((v > max_iter) or (consec_best_ctr >= 5 and old_best_fit_int >= threshold)):
-    #     print(f'GENERATION {v + 1}')
-    #     best_gen_sol = []
-    #     # mutate
-    #     mutated_trial_pop = mutate(population, mut_type, mut, bounds, ind_sol=intensities)
-    #     # crossover
-    #     cross_trial_pop = crossover(population, mutated_trial_pop, crosspb)
-    #     # select
-    #     population, intensities = select(population, cross_trial_pop, intensities, num_between_vals,
-    #                                      sim_id, server_name, root_dir, watch_name, run_parallel)
-    #     # score keeping
-    #     gen_best = np.max(intensities)
-    #     best_indv = population[intensities.index(gen_best)]
-    #     best_gen_sol.append(best_indv)
-    #     best_fitness.append(gen_best)
-    #
-    #     print('      > FITNESS:', gen_best)
-    #     print('         > BEST POSITIONS:', best_indv)
-    #
-    #     v += 1
-    #     if np.round(gen_best, 6) == np.round(old_best_fit_int, 6):
-    #         consec_best_ctr += 1
-    #         print(f'Counter: {consec_best_ctr}')
-    #     else:
-    #         consec_best_ctr = 0
-    #     old_best_fit_int = gen_best
-    #
-    #     if consec_best_ctr >= 5 and old_best_fit_int >= threshold:
-    #         print('Finished')
-    #         break
-    #     else:
+        print('      > FITNESS:', gen_best)
+        print('         > BEST POSITIONS:', best_indv)
+
+        v += 1
+        if np.round(gen_best, 6) == np.round(old_best_fit_int, 6):
+            consec_best_ctr += 1
+            print(f'Counter: {consec_best_ctr}')
+        else:
+            consec_best_ctr = 0
+        old_best_fit_int = gen_best
+
+        if consec_best_ctr >= 5 and old_best_fit_int >= threshold:
+            print('Finished')
+            break
+        else:
+            # randomize individual
+            positions, change_indx = create_rand_selection_params(population, intensities,
+                                                                  param_bounds)
+            print('CHANGED: ', population[change_indx], intensities[change_indx])
+            uid_list = (yield from fly_plan(positions, num_interm_vals, num_scans_at_once,
+                                               sim_id, server_name, root_dir, watch_name, run_parallel))
+            rand_pop, rand_int = select(param_bounds, [population[change_indx]], [intensities[change_indx]],
+                                        num_interm_vals, num_scans_at_once, flyer_name, intensity_name,
+                                        uids=uid_list)
+            print('00000', len(rand_pop), len(rand_int))
+            population[change_indx] = rand_pop[0]
+            intensities[change_indx] = rand_int[0]
+            print('NEW POP AND INT')
+            for i in range(len(population)):
+                print(population[i], intensities[i])
     #         # randomize individual
     #         # TODO: FIX THIS
     #         pos_to_check = []
@@ -433,9 +440,9 @@ def optimize(bounds, num_interm_vals, sim_id, server_name, root_dir, watch_name,
     #         if rand_intensity[0] > intensities[change_indx]:
     #             population[change_indx] = rand_position[0]
     #             intensities[change_indx] = rand_intensity[0]
-    # x_best = best_gen_sol[-1]
-    # print('\nThe best individual is', x_best, 'with a fitness of', gen_best)
-    # print('It took', v, 'generations')
-    # plot_index = np.arange(len(best_fitness))
-    # plt.figure()
-    # plt.plot(plot_index, best_fitness)
+    x_best = best_gen_sol[-1]
+    print('\nThe best individual is', x_best, 'with a fitness of', gen_best)
+    print('It took', v, 'generations')
+    plot_index = np.arange(len(best_fitness))
+    plt.figure()
+    plt.plot(plot_index, best_fitness)
