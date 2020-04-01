@@ -26,11 +26,10 @@ def omea_evaluation(param_bounds, popsize, num_interm_vals, num_scans_at_once,
         num_scans_at_once : int
                             Number of parallel scans to run at a time
     """
-    # TODO: parameterize flyer name
     pop_positions = []
     pop_intensities = []
     # get number of records to look at from databroker
-    num_records = calc_num_records(popsize, num_interm_vals, num_scans_at_once)
+    # num_records = calc_num_records(popsize, num_interm_vals, num_scans_at_once)
     # get data from databroker
     fly_data = []
     # for i in range(-int(num_records), 0):
@@ -107,8 +106,9 @@ best_fitness = [0]
 def run_fly_sim(population, num_interm_vals, num_scans_at_once,
                 sim_id, server_name, root_dir, watch_name, run_parallel):
     uid_list = []
-    flyers = generate_flyers(population, num_interm_vals,
-                             sim_id, server_name, root_dir, watch_name, run_parallel)
+    flyers = generate_flyers(population=population, num_between_vals=num_interm_vals,
+                             sim_id=sim_id, server_name=server_name, root_dir=root_dir,
+                             watch_name=watch_name, run_parallel=run_parallel)
     # make list of flyers into list of list of flyers
     # pass 1 sublist of flyers at a time
     flyers = [flyers[i:i+num_scans_at_once] for i in range(0, len(flyers), num_scans_at_once)]
@@ -282,33 +282,6 @@ def select(param_bounds, population, intensities, num_interm_vals, num_scans_at_
     intensities.reverse()
     return population, intensities
 
-# def select(population, crossover_indv, ind_sol, num_between_vals,
-#            sim_id, server_name, root_dir, watch_name, run_parallel):
-#     # TODO: FIX THIS
-#     positions = [elm for elm in crossover_indv]
-#     positions.insert(0, population[0])
-#     flyers, changed_params = generate_flyers(positions, num_between_vals, sim_id, server_name,
-#                                              root_dir, watch_name, run_parallel)
-#     for i in range(len(flyers)):
-#         run_fly_sim([flyers[i]])
-#         if i == 0:
-#             new_population, new_ind_sol = omea_evaluation(param_bounds, first_scan=True)
-#             # new_population, new_ind_sol = omea_evaluation(first_scan=True)
-#         else:
-#             partial_pop_pos, partial_pop_int = omea_evaluation(param_bounds, first_scan=False)
-#             # partial_pop_pos, partial_pop_int = omea_evaluation(first_scan=False)
-#             new_population.extend(partial_pop_pos)
-#             new_ind_sol.extend(partial_pop_int)
-#     new_population = new_population[1:]
-#     new_ind_sol = new_ind_sol[1:]
-#     for i in range(len(new_ind_sol)):
-#         if new_ind_sol[i] > ind_sol[i]:
-#             population[i] = new_population[i]
-#             ind_sol[i] = new_ind_sol[i]
-#     population.reverse()
-#     ind_sol.reverse()
-#     return population, ind_sol
-
 
 def calc_num_records(popsize, num_interm_vals, num_scans_at_once):
     """Calculate number of records to look at"""
@@ -337,9 +310,8 @@ def optimize(fly_plan, bounds, num_interm_vals, sim_id, server_name, root_dir, w
     for i in initial_population:
         print(i)
 
-    # TODO: test this!
     uid_list = (yield from fly_plan(initial_population, num_interm_vals, num_scans_at_once,
-                                        sim_id, server_name, root_dir, watch_name, run_parallel))
+                                    sim_id, server_name, root_dir, watch_name, run_parallel))
 
     # OMEA evaluation
     population, intensities = omea_evaluation(param_bounds=bounds, popsize=len(initial_population),
