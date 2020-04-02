@@ -7,24 +7,25 @@ import random
 import matplotlib.pyplot as plt
 
 
-def omea_evaluation(param_bounds, popsize, num_interm_vals, num_scans_at_once,
+def omea_evaluation(bounds, popsize, num_interm_vals, num_scans_at_once,
                     flyer_name, intensity_name, uids):
-    """Look at data from flyers and pick best individuals
+    """
+    Look at data from flyers and pick best individuals
 
-        Parameters
-        ----------
-        param_bounds : Dict of dict of list
-                       In the form of {optical element:
-                                       {parameter name: [lower bound, upper bound],
-                                       ...
-                                       }
-                                      }
-        population : list of dicts of dicts
-                     Population of individuals. Needed for comparison later.
-        num_interm_vals : int
-                          Number of positions to look at in between two individuals
-        num_scans_at_once : int
-                            Number of parallel scans to run at a time
+    Parameters
+    ----------
+    bounds : Dict of dict of list
+                   In the form of {optical element:
+                                   {parameter name: [lower bound, upper bound],
+                                   ...
+                                   }
+                                  }
+    population : list of dicts of dicts
+                 Population of individuals. Needed for comparison later.
+    num_interm_vals : int
+                      Number of positions to look at in between two individuals
+    num_scans_at_once : int
+                        Number of parallel scans to run at a time
     """
     pop_positions = []
     pop_intensities = []
@@ -186,7 +187,7 @@ def rand_1(pop, popsize, target_indx, mut, bounds):
         for param_name in param.keys():
             v_donor[elem][param_name] = x_1[elem][param_name] + mut *\
                                         (x_2[elem][param_name] - x_3[elem][param_name])
-    v_donor = ensure_bounds(v_donor, bounds)
+    v_donor = ensure_bounds(vec=v_donor, bounds=bounds)
     return v_donor
 
 
@@ -205,7 +206,7 @@ def best_1(pop, popsize, target_indx, mut, bounds, ind_sol):
         for param_name in param.items():
             v_donor[elem][param_name] = x_best[elem][param_name] + mut *\
                                         (x_1[elem][param_name] - x_2[elem][param_name])
-    v_donor = ensure_bounds(v_donor, bounds)
+    v_donor = ensure_bounds(vec=v_donor, bounds=bounds)
     return v_donor
 
 
@@ -213,9 +214,11 @@ def mutate(population, strategy, mut, bounds, ind_sol):
     mutated_indv = []
     for i in range(len(population)):
         if strategy == 'rand/1':
-            v_donor = rand_1(population, len(population), i, mut, bounds)
+            v_donor = rand_1(pop=population, popsize=len(population),
+                             target_indx=i, mut=mut, bounds=bounds)
         elif strategy == 'best/1':
-            v_donor = best_1(population, len(population), i, mut, bounds, ind_sol)
+            v_donor = best_1(pop=population, popsize=len(population),
+                             target_indx=i, mut=mut, bounds=bounds, ind_sol=ind_sol)
         # elif strategy == 'current-to-best/1':
         #     v_donor = current_to_best_1(population, len(population), i, mut, bounds, ind_sol)
         # elif strategy == 'best/2':
@@ -249,12 +252,12 @@ def create_selection_params(population, cross_indv):
     return positions
 
 
-def create_rand_selection_params(population, intensities, param_bounds):
+def create_rand_selection_params(population, intensities, bounds):
     positions = []
     change_indx = intensities.index(np.min(intensities))
     positions.append(population[0])
     indv = {}
-    for elem, param in param_bounds.items():
+    for elem, param in bounds.items():
         indv[elem] = {}
         for param_name, bound in param.items():
             indv[elem][param_name] = random.uniform(bound[0], bound[1])
@@ -262,12 +265,16 @@ def create_rand_selection_params(population, intensities, param_bounds):
     return positions, change_indx
 
 
-def select(param_bounds, population, intensities, num_interm_vals, num_scans_at_once,
+def select(bounds, population, intensities, num_interm_vals, num_scans_at_once,
            flyer_name, intensity_name, uids):
     # OMEA
-    new_population, new_intensities = omea_evaluation(param_bounds, len(population) + 1,
-                                                      num_interm_vals, num_scans_at_once,
-                                                      flyer_name, intensity_name, uids=uids)
+    new_population, new_intensities = omea_evaluation(bounds=bounds,
+                                                      popsize=len(population) + 1,
+                                                      num_interm_vals=num_interm_vals,
+                                                      num_scans_at_once=num_scans_at_once,
+                                                      flyer_name=flyer_name,
+                                                      intensity_name=intensity_name,
+                                                      uids=uids)
     # # cut first value; it's already been evaluated in population
     del new_population[0]
     del new_intensities[0]
@@ -310,11 +317,12 @@ def optimize(fly_plan, bounds, num_interm_vals, sim_id, server_name, root_dir, w
     for i in initial_population:
         print(i)
 
-    uid_list = (yield from fly_plan(initial_population, num_interm_vals, num_scans_at_once,
-                                    sim_id, server_name, root_dir, watch_name, run_parallel))
+    uid_list = (yield from fly_plan(population=initial_population, num_interm_vals=num_interm_vals,
+                                    num_scans_at_once=num_scans_at_once, sim_id=sim_id, server_name=server_name,
+                                    root_dir=root_dir, watch_name=watch_name, run_parallel=run_parallel))
 
     # OMEA evaluation
-    population, intensities = omea_evaluation(param_bounds=bounds, popsize=len(initial_population),
+    population, intensities = omea_evaluation(bounds=bounds, popsize=len(initial_population),
                                               num_interm_vals=num_interm_vals, num_scans_at_once=num_scans_at_once,
                                               flyer_name=flyer_name, intensity_name=intensity_name, uids=uid_list)
     population.reverse()
@@ -329,22 +337,25 @@ def optimize(fly_plan, bounds, num_interm_vals, sim_id, server_name, root_dir, w
         print(f'GENERATION {v + 1}')
         best_gen_sol = []
         # mutate
-        mutated_trial_pop = mutate(population, mut_type, mut, bounds, ind_sol=intensities)
+        mutated_trial_pop = mutate(population=population, strategy=mut_type,
+                                   mut=mut, bounds=bounds, ind_sol=intensities)
         print('MUTATED_TRIAL_POP')
         for i in mutated_trial_pop:
             print(i)
         # crossover
-        cross_trial_pop = crossover(population, mutated_trial_pop, crosspb)
+        cross_trial_pop = crossover(population=population, mutated_indv=mutated_trial_pop,
+                                    crosspb=crosspb)
         print('CROSS_TRIAL_POP')
         for i in cross_trial_pop:
             print(i)
         # select
-        positions = create_selection_params(population, cross_trial_pop)
-        uid_list = (yield from fly_plan(positions, num_interm_vals, num_scans_at_once,
-                                           sim_id, server_name, root_dir, watch_name, run_parallel))
-        population, intensities = select(param_bounds, population, intensities,
-                                         num_interm_vals, num_scans_at_once,
-                                         flyer_name, intensity_name, uids=uid_list)
+        positions = create_selection_params(population=population, cross_indv=cross_trial_pop)
+        uid_list = (yield from fly_plan(population=positions, num_interm_vals=num_interm_vals,
+                                        num_scans_at_once=num_scans_at_once, sim_id=sim_id, server_name=server_name,
+                                        root_dir=root_dir, watch_name=watch_name, run_parallel=run_parallel))
+        population, intensities = select(bounds=bounds, population=population, intensities=intensities,
+                                         num_interm_vals=num_interm_vals, num_scans_at_once=num_scans_at_once,
+                                         flyer_name=flyer_name, intensity_name=intensity_name, uids=uid_list)
         print('select')
         for i in range(len(population)):
             print(population[i], intensities[i])
@@ -370,14 +381,17 @@ def optimize(fly_plan, bounds, num_interm_vals, sim_id, server_name, root_dir, w
             break
         else:
             # randomize individual
-            positions, change_indx = create_rand_selection_params(population, intensities,
-                                                                  param_bounds)
+            positions, change_indx = create_rand_selection_params(population=population, intensities=intensities,
+                                                                  bounds=bounds)
             print('CHANGED: ', population[change_indx], intensities[change_indx])
-            uid_list = (yield from fly_plan(positions, num_interm_vals, num_scans_at_once,
-                                               sim_id, server_name, root_dir, watch_name, run_parallel))
-            rand_pop, rand_int = select(param_bounds, [population[change_indx]], [intensities[change_indx]],
-                                        num_interm_vals, num_scans_at_once, flyer_name, intensity_name,
-                                        uids=uid_list)
+            uid_list = (yield from fly_plan(population=positions, num_interm_vals=num_interm_vals,
+                                            num_scans_at_once=num_scans_at_once, sim_id=sim_id,
+                                            server_name=server_name, root_dir=root_dir, watch_name=watch_name,
+                                            run_parallel=run_parallel))
+            rand_pop, rand_int = select(bounds=bounds, population=[population[change_indx]],
+                                        intensities=[intensities[change_indx]], num_interm_vals=num_interm_vals,
+                                        num_scans_at_once=num_scans_at_once, flyer_name=flyer_name,
+                                        intensity_name=intensity_name, uids=uid_list)
             print('00000', len(rand_pop), len(rand_int))
             population[change_indx] = rand_pop[0]
             intensities[change_indx] = rand_int[0]
