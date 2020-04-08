@@ -172,10 +172,17 @@ class HardwareFlyer(BlueskyFlyer):
 #     motor_bounds[motor_dict_keys[k]] = {'position': [bound_vals[k][0],
 #                                                      bound_vals[k][1]]}
 
-param_bounds = {'Aperture': {'horizontalSize': [1, 10],
-                             'verticalSize': [.1, 1]},
-                'Lens': {'horizontalFocalLength': [10, 30]},
-                'Obstacle': {'horizontalSize': [1, 10]}}
+# param_bounds = {'Aperture': {'horizontalSize': [1, 10],
+#                              'verticalSize': [.1, 1]},
+#                 'Lens': {'horizontalFocalLength': [10, 30]},
+#                 'Obstacle': {'horizontalSize': [1, 10]}}
+
+# param_bounds = {'Toroid': {'grazingAngle': [5, 10],
+#                            'tangentialRadius': [1000, 10000]},
+#                 'CM': {'grazingAngle': [5, 10]}}
+
+param_bounds = {'Toroid': {'grazingAngle': [5, 10]},
+                'CM': {'grazingAngle': [5, 10]}}
 
 # TODO: merge "params_to_change" and "velocities" lists of dictionaries to become lists of dicts of dicts.
 
@@ -297,7 +304,6 @@ def run_hardware_fly(motors, detector, population, max_velocity, min_velocity):
     uid_list = []
     flyers = generate_hardware_flyers(motors=motors, detector=detector, population=population,
                              max_velocity=max_velocity, min_velocity=min_velocity)
-    print(f'LEN OF FLYERS {len(flyers)}')
     for flyer in flyers:
         yield from bp.fly([flyer])
     for i in range(-len(flyers), 0):
@@ -458,8 +464,6 @@ def omea_evaluation(motors, bounds, popsize, num_interm_vals, num_scans_at_once,
             fly_data.append(db[uid].table(flyer_name))
         interm_pos = []
         interm_int = []
-        for i in fly_data:
-            print(i)
         # Create all sets of indices for population values first
         pop_indxs = [[0, 1]]
         while len(pop_indxs) < popsize:
@@ -502,16 +506,19 @@ def omea_evaluation(motors, bounds, popsize, num_interm_vals, num_scans_at_once,
             interm_int.append(curr_interm_int)
         # picking best positions
         interm_max_idx = []
-        print('OMEA: LEN OF INTERM_INT', len(interm_int))
         for i in range(len(interm_int)):
-            curr_max_int = np.max(interm_int[i])
-            interm_max_idx.append(interm_int[i].index(curr_max_int))
-        print('OMEA: LEN OF interm_max_idx', len(interm_max_idx))
-        print('OMEA: LEN OF pop_intensities', len(pop_intensities))
+            if len(interm_int[i]) == 0:
+                interm_max_idx.append(None)
+            else:
+                curr_max_int = np.max(interm_int[i])
+                interm_max_idx.append(interm_int[i].index(curr_max_int))
         for i in range(len(interm_max_idx)):
-            if interm_int[i][interm_max_idx[i]] > pop_intensities[i + 1]:
-                pop_intensities[i + 1] = interm_int[i][interm_max_idx[i]]
-                pop_positions[i + 1] = interm_pos[i][interm_max_idx[i]]
+            if interm_max_idx[i] is None:
+                pass
+            else:
+                if interm_int[i][interm_max_idx[i]] > pop_intensities[i + 1]:
+                    pop_intensities[i + 1] = interm_int[i][interm_max_idx[i]]
+                    pop_positions[i + 1] = interm_pos[i][interm_max_idx[i]]
         return pop_positions, pop_intensities
 
 
@@ -563,7 +570,7 @@ def rand_1(pop, popsize, target_indx, mut, bounds):
         v_donor[elem] = {}
         for param_name in param.keys():
             v_donor[elem][param_name] = x_1[elem][param_name] + mut *\
-                                        (x_3[elem][param_name] - x_3[elem][param_name])
+                                        (x_2[elem][param_name] - x_3[elem][param_name])
     v_donor = ensure_bounds(vec=v_donor, bounds=bounds)
     return v_donor
 
