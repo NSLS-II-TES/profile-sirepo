@@ -1,13 +1,3 @@
-import time as ttime
-import bluesky.plans as bp
-import bluesky.plan_stubs as bps
-
-import sirepo_bluesky.sirepo_flyer as sf
-
-from collections import deque
-
-from ophyd.sim import NullStatus, new_uid
-
 import numpy as np
 import random
 
@@ -416,6 +406,11 @@ def generate_sim_flyers(population, num_between_vals,
         flyers.append(sim_flyer)
     return flyers
 
+param_bounds = {'Aperture': {'horizontalSize': [1, 10],
+                             'verticalSize': [.1, 1]},
+                'Lens': {'horizontalFocalLength': [10, 30]},
+                'Obstacle': {'horizontalSize': [1, 10]}}
+
 
 def omea_evaluation(motors, bounds, popsize, num_interm_vals, num_scans_at_once,
                     uids, flyer_name, intensity_name):
@@ -520,21 +515,6 @@ def omea_evaluation(motors, bounds, popsize, num_interm_vals, num_scans_at_once,
                     pop_intensities[i + 1] = interm_int[i][interm_max_idx[i]]
                     pop_positions[i + 1] = interm_pos[i][interm_max_idx[i]]
         return pop_positions, pop_intensities
-
-
-def check_opt_bounds(motors, bounds):
-    # for hardware optimization
-    for elem, param in bounds.items():
-        for param_name, bound in param.items():
-            if bound[0] > bound[1]:
-                raise ValueError(f"Invalid bounds for {elem}. Current bounds are set to "
-                                 f"{bound[0], bound[1]}, but lower bound is greater than "
-                                 f"upper bound")
-            if bound[0] < motors[elem][param_name].low_limit or bound[1] >\
-                    motors[elem][param_name].high_limit:
-                raise ValueError(f"Invalid bounds for {elem}. Current bounds are set to "
-                                 f"{bound[0], bound[1]}, but {elem} has bounds of "
-                                 f"{motors[elem][param_name].limits}")
 
 
 def ensure_bounds(vec, bounds):
@@ -707,61 +687,62 @@ def select(population, intensities, motors, bounds, num_interm_vals,
     return population, intensities
 
 
-def move_to_optimized_positions(motors, opt_pos):
-    """Move motors to best positions. Only for hardware optimization"""
-    mv_params = []
-    for elem, param in motors.items():
-        for param_name, elem_obj in param.items():
-            mv_params.append(elem_obj)
-            mv_params.append(opt_pos[elem][param_name])
-    yield from bps.mv(*mv_params)
-
-
 def optimize(fly_plan, bounds, motors=None, detector=None, max_velocity=0.2, min_velocity=0,
-             run_parallel=None, num_interm_vals=None, num_scans_at_once=None, sim_id=None,
+             num_interm_vals=None, num_scans_at_once=None, sim_id=None, run_parallel=None,
              server_name=None, root_dir=None, watch_name=None, popsize=5, crosspb=.8, mut=.1,
              mut_type='rand/1', threshold=0, max_iter=100, flyer_name='sirepo_flyer',
              intensity_name='mean', opt_type='sirepo'):
     """
     Optimize beamline using sirepo flyers and differential evolution
+
     Custom plan to optimize Sirepo simulation parameters using differential evolution
+
     Parameters
     ----------
-    fly_plan : callable
-               Fly scan plan for current type of flyer.
-               Currently the only option is `run_hardware_fly`, but another will be added for sirepo simulations
-    motors : dict
-             Keys are motor names and values are motor objects
-    detector : detector object or None
-               Detector to use, or None if no detector will be used
-    bounds : dict of dicts
-             Keys are motor names and values are dicts of low and high bounds. See format below.
-             {'motor_name': {'low': lower_bound, 'high': upper_bound}}
-    max_velocity : float, optional
-                   Absolute maximum velocity for all motors
-                   Default is 0.2
-    min_velocity : float, optional
-                   Absolute minumum velocity for all motors
-    popsize : int, optional
-              Size of population
-    crosspb : float, optional
-              Probability of crossover. Must be in range [0, 1]
-    mut : float, optional
-          Mutation factor. Must be in range [0, 1]
-    mut_type : {'rand/1', 'best/1'}, optional
-               Mutation strategy to use. 'rand/1' chooses random individuals to compare to.
-               'best/1' uses the best individual to compare to.
-               Default is 'rand/1'
-    threshold : float, optional
-                Threshold that intensity must be greater than or equal to to stop execution
-    max_iter : int, optional
-               Maximum iterations to allow
-    flyer_name : str, optional
-                 Name of flyer. DataBroker stream name
-                 Default is 'tes_hardware_flyer'
-    intensity_name : {'intensity', 'mean'}, optional
-                     Hardware optimization would use 'intensity'. Sirepo optimization would use 'mean'
-                     Default is 'intensity'
+    fly_plan: callable
+              Fly scan plan for current type of flyer.
+              Currently the only option is `run_hardware_fly`, but another will be added for sirepo simulations
+    bounds: dict of dicts
+            Keys are motor names and values are dicts of low and high bounds. See format below.
+            {'motor_name': {'low': lower_bound, 'high': upper_bound}}
+    motors: dict
+            Keys are motor names and values are motor objects
+    detector: detector object or None
+              Detector to use, or None if no detector will be used
+    max_velocity: float, optional
+                  Absolute maximum velocity for all motors
+                  Default is 0.2
+    min_velocity: float, optional
+                  Absolute minumum velocity for all motors
+    num_interm_vals: int
+    num_scans_at_once: int
+    sim_id: str
+    run_parallel: bool
+    server_name: str
+    root_dir: str
+              Root directory path
+    watch_name: str
+    popsize: int, optional
+             Size of population
+    crosspb: float, optional
+             Probability of crossover. Must be in range [0, 1]
+    mut: float, optional
+         Mutation factor
+    mut_type: {'rand/1', 'best/1'}, optional
+              Mutation strategy to use. 'rand/1' chooses random individuals to compare to.
+              'best/1' uses the best individual to compare to.
+              Default is 'rand/1'
+    threshold: float, optional
+               Threshold that intensity must be greater than or equal to to stop execution
+    max_iter: int, optional
+              Maximum iterations to allow
+    flyer_name: str, optional
+                Name of flyer. DataBroker stream name
+                Default is 'tes_hardware_flyer'
+    intensity_name: {'intensity', 'mean'}, optional
+                    Hardware optimization would use 'intensity'. Sirepo optimization would use 'mean'
+                    Default is 'intensity'
+    opt_type: {'hardware', 'sirepo'}
     """
     global optimized_positions
     if opt_type == 'hardware':
@@ -772,8 +753,8 @@ def optimize(fly_plan, bounds, motors=None, detector=None, max_velocity=0.2, min
             for p in range(len(needed_params)):
                 if needed_params[p] is None:
                     invalid_params.append(needed_params[p])
-            raise ValueError(f'The following parameters are set to None, but '
-                             f'need to be set: {invalid_params}')
+            raise ValueError(f'Some parameters are set to None but are required. Make sure the following '
+                             f'parameters are defined and not set to None: {needed_params}')
         # check if bounds passed in are within the actual bounds of the motors
         check_opt_bounds(motors, bounds)
         # create initial population
@@ -804,8 +785,8 @@ def optimize(fly_plan, bounds, motors=None, detector=None, max_velocity=0.2, min
             for p in range(len(needed_params)):
                 if needed_params[p] is None:
                     invalid_params.append(needed_params[p])
-            raise ValueError(f'The following parameters are set to None, but '
-                             f'need to be set: {invalid_params}')
+            raise ValueError(f'Some parameters are set to None but are required. Make sure the following '
+                             f'parameters are defined and not set to None: {needed_params}')
         # Initial population
         initial_population = []
         for i in range(popsize):
@@ -834,7 +815,7 @@ def optimize(fly_plan, bounds, motors=None, detector=None, max_velocity=0.2, min
     consec_best_ctr = 0  # counting successive generations with no change to best value
     old_best_fit_val = 0
     best_fitness = [0]
-    while not ((v > max_iter) or (consec_best_ctr >= 5 and old_best_fit_val >= threshold)):
+    while not ((v >= max_iter) or (consec_best_ctr >= 5 and old_best_fit_val >= threshold)):
         print(f'GENERATION {v + 1}')
         best_gen_sol = []
         # mutate
@@ -923,4 +904,6 @@ def optimize(fly_plan, bounds, motors=None, detector=None, max_velocity=0.2, min
 
     plot_index = np.arange(len(best_fitness))
     plt.figure()
+    plt.xlabel('Generation')
+    plt.ylabel('Intensity')
     plt.plot(plot_index, best_fitness)
