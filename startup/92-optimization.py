@@ -1,5 +1,7 @@
-from bloptools.DE_opt_utils import run_fly_sim
-from bloptools.DE_optimization import optimization_plan
+import matplotlib.pyplot as plt
+
+from bloptools.de_opt_utils import run_fly_sim
+from bloptools.de_optimization import optimization_plan
 
 # param_bounds = {'Aperture': {'horizontalSize': [1, 10],
 #                              'verticalSize': [.1, 1]},
@@ -16,6 +18,8 @@ from bloptools.DE_optimization import optimization_plan
 param_bounds = {'Aperture': {'horizontalSize': [1, 10],
                              'verticalSize': [.1, 1]},
                 'Lens': {'horizontalFocalLength': [10, 30]}}
+
+plt.figure()
 
 # run with:
 # RE(optimization_plan(fly_plan=run_fly_sim, bounds=param_bounds, db=db, run_parallel=True,
