@@ -1,6 +1,7 @@
 #!/bin/bash
 
-pip install "bloptools>=0.0.2"
+# pip install "bloptools>=0.0.2"
+conda install -c nsls2forge "bloptools>=0.0.2"
 
 # Start Sirepo Docker container.
 # https://github.com/NSLS-II/sirepo-bluesky/blob/4d7d556741a4a477966218dbdf80c3bb04ded404/.travis.yml#L59
