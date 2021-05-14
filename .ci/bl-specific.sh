@@ -21,3 +21,6 @@ docker run -d -t --init --rm --name sirepo \
     -v $PWD/sirepo-bluesky/sirepo_bluesky/tests/SIREPO_SRDB_ROOT:/SIREPO_SRDB_ROOT:ro,z \
     ${SIREPO_DOCKER_IMAGE} \
     bash -l -c "mkdir -v -p /sirepo/ && cp -Rv /SIREPO_SRDB_ROOT/* /sirepo/ && sirepo service http"
+
+docker images
+docker ps -a
