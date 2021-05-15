@@ -8,7 +8,7 @@ RE(
         db=db,
         run_parallel=True,
         num_interm_vals=1,
-        num_scans_at_once=2,
+        num_scans_at_once=4,
         sim_id="00000000",
         server_name="http://localhost:8000",
         root_dir=root_dir,
