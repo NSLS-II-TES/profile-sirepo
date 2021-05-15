@@ -1,6 +1,5 @@
-# We are dealing with the "Young's Double Slit Experiment"
+# We are dealing with the "Young's Double Slit Experiment" simulation here:
 # https://github.com/NSLS-II/sirepo-bluesky/blob/master/sirepo_bluesky/tests/SIREPO_SRDB_ROOT/user/SdP3aU5G/srw/00000000/sirepo-data.json
-# simulation here.
 
 RE(
     optimization_plan(
@@ -17,5 +16,6 @@ RE(
         flyer_name="sirepo_flyer",
         intensity_name="mean",
         opt_type="sirepo",
+        max_iter=5,
     )
 )
