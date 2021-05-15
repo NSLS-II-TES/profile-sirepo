@@ -1,8 +1,8 @@
 #!/bin/bash
 
-# pip install "bloptools>=0.0.2" --no-deps -vv
+pip install "bloptools>=0.0.2" --no-deps -vv
 
-conda install -y -c ${CONDA_CHANNEL_NAME} "bloptools>=0.0.2"
+# conda install -y -c ${CONDA_CHANNEL_NAME} "bloptools>=0.0.2"
 
 # Start Sirepo Docker container.
 # https://github.com/NSLS-II/sirepo-bluesky/blob/4d7d556741a4a477966218dbdf80c3bb04ded404/.travis.yml#L59
